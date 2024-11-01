@@ -98,7 +98,7 @@ def logout(token):
     return make_response(jsonify( {
         'message' : 'Logout successful' } ), 200 )
 
-@auth_bp.route("/api/v1.0/ban/<uid>", methods=["GET"])
+@auth_bp.route("/api/v1.0/ban/<uid>", methods=["PATCH"])
 @jwt_required
 @admin_required
 def delete_user(token, uid):

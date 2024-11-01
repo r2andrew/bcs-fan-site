@@ -14,24 +14,21 @@ episodes = globals.db.episodes
 @trivias_bp.route("/api/v1.0/episodes/<string:id>/trivias", methods=["POST"])
 @jwt_required
 def add_new_trivia(token, id):
-    print(token)
     if not all(c in string.hexdigits for c in id):
         return make_response(jsonify({"error" : "Invalid id format"} ), 422)
-    if "text" in request.form and "score" in request.form:
+    if "text" in request.form:
         new_trivia = {
             "_id" : ObjectId(),
             "createdDtm": datetime.utcnow(),
             "modifiedDtm": datetime.utcnow(),
             "user" : token["user"],
             "text" : request.form["text"],
-            "score" : int(request.form["score"])
+            "score" : 0
         }
         try:
             episodes.update_one( { "_id" : ObjectId(id) }, { "$push": { "trivias" : new_trivia } } )
         except pymongo.errors.ServerSelectionTimeoutError:
             return make_response(jsonify({"error": "Connection to database timed out"}), 500)
-        except ValueError:
-            return make_response(jsonify({"error": "Invalid score input"}), 422)
         except:
             return make_response(jsonify({"error": "An unknown error occurred in the database"}), 500)
         new_trivia_link = "http://localhost:5000/api/v1.0/episodes/" \
@@ -74,7 +71,7 @@ def fetch_one_trivia(eid, tid):
     episode['trivias'][0]['_id'] = str(episode['trivias'][0]['_id'])
     return make_response( jsonify(episode['trivias'][0]), 200)
 
-@trivias_bp.route("/api/v1.0/episodes/<eid>/trivias/<tid>", methods=["PUT"])
+@trivias_bp.route("/api/v1.0/episodes/<eid>/trivias/<tid>", methods=["PATCH"])
 @jwt_required
 @original_poster_required
 def edit_trivia(token, eid, tid):
@@ -96,6 +93,36 @@ def edit_trivia(token, eid, tid):
         return make_response( jsonify( {"url":edit_trivia_url} ), 200)
     else:
         return make_response(jsonify({"error": "Missing form data"}), 404)
+
+@trivias_bp.route("/api/v1.0/episodes/<string:id>/trivias/<tid>/vote", methods=["PATCH"])
+@jwt_required
+def vote_on_trivia(token, id, tid):
+    if not all(c in string.hexdigits for c in id):
+        return make_response(jsonify({"error" : "Invalid id format"} ), 422)
+    if request.args.get('vote') == "up":
+        added_vote = {
+            "trivias.$.upvotes": token["user"]
+        }
+        removed_vote = {
+            "trivias.$.downvotes": token["user"]
+        }
+    elif request.args.get('vote') == "down":
+        added_vote = {
+            "trivias.$.downvotes": token["user"]
+        }
+        removed_vote = {
+            "trivias.$.upvotes": token["user"]
+        }
+    else:
+        return make_response(jsonify({"error": "Vote direction not provided"}), 404)
+    try:
+        episodes.update_one({"trivias._id": ObjectId(tid)}, {"$addToSet": added_vote})
+        episodes.update_one({"trivias._id": ObjectId(tid)}, {"$pull": removed_vote})
+    except pymongo.errors.ServerSelectionTimeoutError:
+        return make_response(jsonify({"error": "Connection to database timed out"}), 500)
+    except:
+        return make_response(jsonify({"error": "An unknown error occurred in the database"}), 500)
+    return make_response( jsonify( { "message" : "Vote recorded" } ), 200 )
 
 
 @trivias_bp.route("/api/v1.0/episodes/<eid>/trivias/<tid>", methods=["DELETE"])

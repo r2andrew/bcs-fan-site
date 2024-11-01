@@ -54,7 +54,7 @@ def show_one_episode(id):
     else:
         return make_response( jsonify({"error" : "Invalid episode ID"} ), 404 )
 
-@episodes_bp.route("/api/v1.0/episodes/<string:id>", methods=["PUT"])
+@episodes_bp.route("/api/v1.0/episodes/<string:id>", methods=["PATCH"])
 @jwt_required
 def edit_episode(token, id):
     if not all(c in string.hexdigits for c in id):
