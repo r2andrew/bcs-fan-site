@@ -65,7 +65,7 @@ def fetch_one_trivia(eid, tid):
     except pymongo.errors.ServerSelectionTimeoutError:
         return make_response(jsonify({"error": "Connection to database timed out"}), 500)
     except:
-        return make_response(jsonify({"error": "An unknown error occurred in th1e database"}), 500)
+        return make_response(jsonify({"error": "An unknown error occurred in the database"}), 500)
     if episode is None:
         return make_response(jsonify({"error":"Invalid episode ID or trivia ID"}),404)
     episode['trivias'][0]['_id'] = str(episode['trivias'][0]['_id'])
@@ -93,6 +93,7 @@ def edit_trivia(token, eid, tid):
         return make_response( jsonify( {"url":edit_trivia_url} ), 200)
     else:
         return make_response(jsonify({"error": "Missing form data"}), 404)
+
 
 @trivias_bp.route("/api/v1.0/episodes/<string:id>/trivias/<tid>/vote", methods=["PATCH"])
 @jwt_required
@@ -124,6 +125,28 @@ def vote_on_trivia(token, id, tid):
         return make_response(jsonify({"error": "An unknown error occurred in the database"}), 500)
     return make_response( jsonify( { "message" : "Vote recorded" } ), 200 )
 
+@trivias_bp.route("/api/v1.0/episodes/<eid>/trivias/<tid>/score", methods=["GET"])
+def fetch_trivia_score(eid, tid):
+    if not all(c in string.hexdigits for c in eid):
+        return make_response(jsonify({"error" : "Invalid episode id format"} ), 422)
+    if not all(c in string.hexdigits for c in tid):
+        return make_response(jsonify({"error" : "Invalid trivia id format"} ), 422)
+
+    try:
+        trivia = episodes.find_one({ "trivias._id" : ObjectId(tid)},
+                                    {"trivias" : {"$elemMatch" : {"_id" : ObjectId(tid)}}})
+        upvote_count = len(trivia["trivias"][0]["upvotes"])
+        downvote_count = len(trivia["trivias"][0]["downvotes"])
+        score = upvote_count - downvote_count
+
+    except pymongo.errors.ServerSelectionTimeoutError:
+        return make_response(jsonify({"error": "Connection to database timed out"}), 500)
+    except Exception as e:
+        return make_response(jsonify({"error": e}), 500)
+    if trivia is None:
+        return make_response(jsonify({"error":"Invalid episode ID or trivia ID"}),404)
+
+    return make_response( jsonify( {"score": score} ), 200)
 
 @trivias_bp.route("/api/v1.0/episodes/<eid>/trivias/<tid>", methods=["DELETE"])
 @jwt_required
