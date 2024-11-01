@@ -1,3 +1,4 @@
+import re
 import pymongo.errors
 from flask import Blueprint, request, make_response, jsonify
 import string
@@ -11,7 +12,10 @@ episodes = globals.db.episodes
 
 @episodes_bp.route("/api/v1.0/episodes", methods=["GET"])
 def show_all_episodes():
+    query = {}
     page_num, page_size = 1, 10
+    if request.args.get('title'):
+        query = { "name" : {"$regex" : re.compile(str(request.args.get('title')), re.IGNORECASE) } }
     if request.args.get('pn'):
         page_num = int(request.args.get('pn'))
     if request.args.get('ps'):
@@ -20,15 +24,15 @@ def show_all_episodes():
     data_to_return = []
 
     try:
-        for episode in episodes.find().skip(page_start).limit(page_size):
+        for episode in episodes.find(query).skip(page_start).limit(page_size):
             episode['_id'] = str(episode['_id'])
             for trivia in episode['trivias']:
                 trivia['_id'] = str(trivia['_id'])
             data_to_return.append(episode)
     except pymongo.errors.ServerSelectionTimeoutError:
         return make_response(jsonify({"error" : "Connection to database timed out"} ), 500)
-    except Exception as e:
-        return make_response(jsonify({"error" : "An unknown error occurred in the database" + e}), 500)
+    except:
+        return make_response(jsonify({"error" : "An unknown error occurred in the database"}), 500)
 
     return make_response( jsonify(data_to_return), 200 )
 
