@@ -1,7 +1,9 @@
+import string
+
 from flask import Blueprint, request, make_response, jsonify
 import pymongo.errors
 import globals
-from decorators import jwt_required
+from decorators import jwt_required, admin_required
 import bcrypt
 import jwt
 import datetime
@@ -31,7 +33,8 @@ def register():
                     "username" : str(request.form["username"]),
                     "password" : bcrypt.hashpw(password, bcrypt.gensalt()),
                     "email" : str(request.form["email"]),
-                    "admin": False
+                    "admin": False,
+                    "banned": False
                 }
                 try:
                     users.insert_one(new_user)
@@ -59,18 +62,22 @@ def login():
         except pymongo.errors:
             return make_response(jsonify({"error": "An unknown error occurred in the database"}), 500)
         if user is not None:
-            if bcrypt.checkpw(bytes(auth.password, 'UTF-8'),
-                user["password"]):
-                    token = jwt.encode( {
-                        'user' : auth.username,
-                        'admin' : user['admin'],
-                        'exp' : datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=30) },
-                        globals.secret_key,
-                        algorithm="HS256")
-                    return make_response(jsonify({'token' : token}), 200)
+            if not user["banned"]:
+                if bcrypt.checkpw(bytes(auth.password, 'UTF-8'),
+                    user["password"]):
+                        token = jwt.encode( {
+                            'user' : auth.username,
+                            'admin' : user['admin'],
+                            'exp' : datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=30) },
+                            globals.secret_key,
+                            algorithm="HS256")
+                        return make_response(jsonify({'token' : token}), 200)
+                else:
+                    return make_response(jsonify({
+                        'message': 'Bad password'}), 401)
             else:
                 return make_response(jsonify({
-                    'message': 'Bad password'}), 401)
+                    'message': 'User banned'}), 401)
         else:
             return make_response(jsonify({
                 'message': 'Bad username'}), 401)
@@ -90,3 +97,21 @@ def logout(token):
         return make_response(jsonify({"error": "An unknown error occurred in the database"}), 500)
     return make_response(jsonify( {
         'message' : 'Logout successful' } ), 200 )
+
+@auth_bp.route("/api/v1.0/ban/<uid>", methods=["GET"])
+@jwt_required
+@admin_required
+def delete_user(token, uid):
+    if not all(c in string.hexdigits for c in uid):
+        return make_response(jsonify({"error" : "Invalid trivia id format"} ), 422)
+    edited_user = {
+        "name": "banned",
+        "banned": True,
+    }
+    try:
+        users.update_one({ "_id" : ObjectId(uid) }, { "$set" : edited_user })
+    except pymongo.errors.ServerSelectionTimeoutError:
+        return make_response(jsonify({"error": "Connection to database timed out"}), 500)
+    except:
+        return make_response(jsonify({"error": "An unknown error occurred in the database"}), 500)
+    return make_response(jsonify({"message": "User banned"}), 200)
