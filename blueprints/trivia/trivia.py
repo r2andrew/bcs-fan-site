@@ -51,8 +51,10 @@ def fetch_all_trivias(id):
                                 "$$item",
                                 {
                                     "score": {"$subtract" : [
-                                        { "$cond": { "if": { "$isArray": "$$item.upvotes" }, "then": { "$size": "$$item.upvotes" }, "else": 0}},
-                                        { "$cond": { "if": { "$isArray": "$$item.downvotes" }, "then": { "$size": "$$item.downvotes" }, "else": 0}}
+                                        { "$cond": { "if": { "$isArray": "$$item.upvotes" },
+                                                     "then": { "$size": "$$item.upvotes" }, "else": 0}},
+                                        { "$cond": { "if": { "$isArray": "$$item.downvotes" },
+                                                     "then": { "$size": "$$item.downvotes" }, "else": 0}}
                                     ] }
                                 }
                             ]

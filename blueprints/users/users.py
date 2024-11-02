@@ -16,8 +16,8 @@ def get_user(uid):
         user = users.find_one({'_id': ObjectId(uid)}, {"password":0, "_id": 0})
     except pymongo.errors.ServerSelectionTimeoutError:
         return make_response(jsonify({"error" : "Connection to database timed out"} ), 500)
-    # except:
-    #     return make_response(jsonify({"error" : "An unknown error occurred in the database"}), 500)
+    except:
+        return make_response(jsonify({"error" : "An unknown error occurred in the database"}), 500)
     if user is not None:
         return make_response( jsonify( user ), 200 )
     else:
