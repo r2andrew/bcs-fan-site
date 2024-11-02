@@ -23,7 +23,6 @@ def add_new_trivia(token, id):
             "modifiedDtm": datetime.utcnow(),
             "user" : token["user"],
             "text" : request.form["text"],
-            "score" : 0
         }
         try:
             episodes.update_one( { "_id" : ObjectId(id) }, { "$push": { "trivias" : new_trivia } } )
@@ -42,13 +41,42 @@ def fetch_all_trivias(id):
     if not all(c in string.hexdigits for c in id):
         return make_response(jsonify({"error" : "Invalid id format"} ), 422)
     data_to_return = []
+
+    stages = [
+        {
+            "$match" : {"_id" : ObjectId(id)}
+        },
+        {
+            "$addFields": {
+                "trivias": {
+                    "$map": {
+                        "input": "$trivias",
+                        "as": "item",
+                        "in": {
+                            "$mergeObjects": [
+                                "$$item",
+                                {
+                                    "score": {"$subtract" : [
+                                        { "$cond": { "if": { "$isArray": "$$item.upvotes" }, "then": { "$size": "$$item.upvotes" }, "else": 0}},
+                                        { "$cond": { "if": { "$isArray": "$$item.downvotes" }, "then": { "$size": "$$item.downvotes" }, "else": 0}}
+                                    ]
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+    ]
+
     try:
-        episode = episodes.find_one( { "_id" : ObjectId(id) }, { "trivias" : 1, "_id" : 0 } )
+        episode = list(episodes.aggregate(stages))
     except pymongo.errors.ServerSelectionTimeoutError:
         return make_response(jsonify({"error": "Connection to database timed out"}), 500)
     except:
         return make_response(jsonify({"error": "An unknown error occurred in the database"}), 500)
-    for trivia in episode["trivias"]:
+    for trivia in episode[0]["trivias"]:
         trivia["_id"] = str(trivia["_id"])
         data_to_return.append(trivia)
     return make_response( jsonify( data_to_return ), 200 )
@@ -124,29 +152,6 @@ def vote_on_trivia(token, id, tid):
     except:
         return make_response(jsonify({"error": "An unknown error occurred in the database"}), 500)
     return make_response( jsonify( { "message" : "Vote recorded" } ), 200 )
-
-@trivias_bp.route("/api/v1.0/episodes/<eid>/trivias/<tid>/score", methods=["GET"])
-def fetch_trivia_score(eid, tid):
-    if not all(c in string.hexdigits for c in eid):
-        return make_response(jsonify({"error" : "Invalid episode id format"} ), 422)
-    if not all(c in string.hexdigits for c in tid):
-        return make_response(jsonify({"error" : "Invalid trivia id format"} ), 422)
-
-    try:
-        trivia = episodes.find_one({ "trivias._id" : ObjectId(tid)},
-                                    {"trivias" : {"$elemMatch" : {"_id" : ObjectId(tid)}}})
-        upvote_count = len(trivia["trivias"][0]["upvotes"])
-        downvote_count = len(trivia["trivias"][0]["downvotes"])
-        score = upvote_count - downvote_count
-
-    except pymongo.errors.ServerSelectionTimeoutError:
-        return make_response(jsonify({"error": "Connection to database timed out"}), 500)
-    except Exception as e:
-        return make_response(jsonify({"error": e}), 500)
-    if trivia is None:
-        return make_response(jsonify({"error":"Invalid episode ID or trivia ID"}),404)
-
-    return make_response( jsonify( {"score": score} ), 200)
 
 @trivias_bp.route("/api/v1.0/episodes/<eid>/trivias/<tid>", methods=["DELETE"])
 @jwt_required

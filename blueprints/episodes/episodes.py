@@ -23,7 +23,6 @@ def show_all_episodes():
         page_size = int(request.args.get('ps'))
     page_start = (page_size * (page_num - 1))
     data_to_return = []
-
     try:
         for episode in episodes.find(query).skip(page_start).limit(page_size):
             episode['_id'] = str(episode['_id'])
