@@ -61,6 +61,7 @@ def show_one_episode(id):
 
 @episodes_bp.route("/api/v1.0/episodes/<string:id>", methods=["PATCH"])
 @jwt_required
+@admin_required
 def edit_episode(token, id):
     if not all(c in string.hexdigits for c in id):
         return make_response(jsonify({"error" : "Invalid id format"} ), 422)
@@ -84,20 +85,3 @@ def edit_episode(token, id):
             return make_response( jsonify({ "error":"Invalid episode ID" } ), 404)
     else:
         return make_response( jsonify({ "error" : "Missing form data" } ), 404)
-
-@episodes_bp.route("/api/v1.0/episodes/<string:id>", methods=["DELETE"])
-@jwt_required
-@admin_required
-def delete_episode(token, id):
-    if not all(c in string.hexdigits for c in id):
-        return make_response(jsonify({"error" : "Invalid id format"} ), 422)
-    try:
-        result = episodes.delete_one( { "_id" : ObjectId(id) } )
-    except pymongo.errors.ServerSelectionTimeoutError:
-        return make_response(jsonify({"error" : "Connection to database timed out"} ), 500)
-    except:
-        return make_response(jsonify({"error" : "An unknown error occurred in the database"}), 500)
-    if result.deleted_count == 1:
-        return make_response( jsonify( {} ), 204)
-    else:
-        return make_response( jsonify( { "error" : "Invalid episode ID" } ), 404)

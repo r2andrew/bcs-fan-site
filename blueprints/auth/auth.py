@@ -100,7 +100,7 @@ def logout(token):
 @admin_required
 def delete_user(token, uid):
     if not all(c in string.hexdigits for c in uid):
-        return make_response(jsonify({"error" : "Invalid trivia id format"} ), 422)
+        return make_response(jsonify({"error" : "Invalid user id format"} ), 422)
     edited_user = {
         "name": "banned",
         "banned": True,

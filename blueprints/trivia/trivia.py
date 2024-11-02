@@ -100,7 +100,7 @@ def fetch_one_trivia(eid, tid):
         return make_response(jsonify({"error": "Connection to database timed out"}), 500)
     except:
         return make_response(jsonify({"error": "An unknown error occurred in the database"}), 500)
-    if episode is None:
+    if not episode:
         return make_response(jsonify({"error":"Invalid episode ID or trivia ID"}),404)
     episode[0]["trivias"]['_id'] = str(episode[0]['trivias']['_id'])
     return make_response( jsonify(episode[0]['trivias']), 200)
@@ -131,7 +131,7 @@ def edit_trivia(token, eid, tid):
 @trivias_bp.route("/api/v1.0/episodes/<string:eid>/trivias/<tid>/vote", methods=["PATCH"])
 @jwt_required
 def vote_on_trivia(token, eid, tid):
-    if not all(c in string.hexdigits for c in id):
+    if not all(c in string.hexdigits for c in tid):
         return make_response(jsonify({"error" : "Invalid id format"} ), 422)
     if request.args.get('vote') == "up":
         added_vote = { "trivias.$.upvotes": token["user"] }
@@ -140,7 +140,7 @@ def vote_on_trivia(token, eid, tid):
         added_vote = { "trivias.$.downvotes": token["user"] }
         removed_vote = { "trivias.$.upvotes": token["user"] }
     else:
-        return make_response(jsonify({"error": "Vote direction not provided"}), 404)
+        return make_response(jsonify({"error": "Vote direction not provided"}), 422)
     try:
         episodes.update_one({"trivias._id": ObjectId(tid)}, {"$addToSet": added_vote})
         episodes.update_one({"trivias._id": ObjectId(tid)}, {"$pull": removed_vote})
