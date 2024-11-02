@@ -16,7 +16,7 @@ def show_all_episodes():
     query = {}
     page_num, page_size = 1, 10
     if request.args.get('title'):
-        query = { "name" : {"$regex" : re.compile(str(request.args.get('title')), re.IGNORECASE) } }
+        query = { "title" : {"$regex" : re.compile(str(request.args.get('title')), re.IGNORECASE) } }
     if request.args.get('pn'):
         page_num = int(request.args.get('pn'))
     if request.args.get('ps'):
@@ -33,7 +33,11 @@ def show_all_episodes():
         return make_response(jsonify({"error" : "Connection to database timed out"} ), 500)
     except:
         return make_response(jsonify({"error" : "An unknown error occurred in the database"}), 500)
-    total_pages = 62 / page_size
+    if request.args.get('title'):
+        total_pages = 1
+        page_num = 1
+    else:
+        total_pages = 62 / page_size
     return make_response( jsonify({"this_page" : page_num, "total_pages" : math.ceil(total_pages), "data": data_to_return}), 200 )
 
 @episodes_bp.route("/api/v1.0/episodes/<string:id>", methods=["GET"])
