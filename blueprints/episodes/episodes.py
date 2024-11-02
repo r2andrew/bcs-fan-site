@@ -38,7 +38,8 @@ def show_all_episodes():
         page_num = 1
     else:
         total_pages = 62 / page_size
-    return make_response( jsonify({"this_page" : page_num, "total_pages" : math.ceil(total_pages), "data": data_to_return}), 200 )
+    return make_response( jsonify({"this_page" : page_num, "total_pages" : math.ceil(total_pages),
+                                   "data": data_to_return}), 200 )
 
 @episodes_bp.route("/api/v1.0/episodes/<string:id>", methods=["GET"])
 def show_one_episode(id):
@@ -65,12 +66,11 @@ def edit_episode(token, id):
         return make_response(jsonify({"error" : "Invalid id format"} ), 422)
     if "imdbRating" in request.form:
         try:
-            result = episodes.update_one( \
-                { "_id" : ObjectId(id) }, {
+            result = episodes.update_one({ "_id" : ObjectId(id) }, {
                 "$set" : {
                     "imdbRating" : int(request.form["imdbRating"]),
                 }
-            } )
+            })
         except pymongo.errors.ServerSelectionTimeoutError:
             return make_response(jsonify({"error": "Connection to database timed out"}), 500)
         except ValueError:

@@ -1,5 +1,4 @@
 from datetime import datetime
-
 import pymongo.errors
 from flask import Blueprint, request, make_response, jsonify
 import string
@@ -40,8 +39,6 @@ def add_new_trivia(token, id):
 def fetch_all_trivias(id):
     if not all(c in string.hexdigits for c in id):
         return make_response(jsonify({"error" : "Invalid id format"} ), 422)
-    data_to_return = []
-
     stages = [ { "$match" : {"_id" : ObjectId(id)} },
         {
             "$addFields": {
@@ -65,6 +62,7 @@ def fetch_all_trivias(id):
             }
         }
     ]
+    data_to_return = []
     try:
         episode = list(episodes.aggregate(stages))
     except pymongo.errors.ServerSelectionTimeoutError:
@@ -82,22 +80,20 @@ def fetch_one_trivia(eid, tid):
         return make_response(jsonify({"error" : "Invalid episode id format"} ), 422)
     if not all(c in string.hexdigits for c in tid):
         return make_response(jsonify({"error" : "Invalid trivia id format"} ), 422)
-
     stages = [{"$match": {"_id": ObjectId(eid)}},
-              {"$unwind" : "$trivias"},
-              {"$match" : {"trivias._id": ObjectId(tid)}},
-              {"$project" : {"trivias" : 1, "_id" : 0}},
-              {
-                  "$addFields" : {
-                      "trivias.score": {"$subtract": [
-                          {"$cond": {"if": {"$isArray": "$trivias.upvotes"},
-                                     "then": {"$size": "$trivias.upvotes"}, "else": 0}},
-                          {"$cond": {"if": {"$isArray": "$trivias.downvotes"},
-                                     "then": {"$size": "$trivias.downvotes"}, "else": 0}}
-                      ]}
-                  }
-              }
-              ]
+                {"$unwind" : "$trivias"},
+                {"$match" : {"trivias._id": ObjectId(tid)}},
+                {"$project" : {"trivias" : 1, "_id" : 0}},
+                {"$addFields" : {
+                    "trivias.score": {"$subtract": [
+                        {"$cond": {"if": {"$isArray": "$trivias.upvotes"},
+                                 "then": {"$size": "$trivias.upvotes"}, "else": 0}},
+                        {"$cond": {"if": {"$isArray": "$trivias.downvotes"},
+                                 "then": {"$size": "$trivias.downvotes"}, "else": 0}}
+                        ]}
+                    }
+                }
+            ]
     try:
         episode = list(episodes.aggregate(stages))
     except pymongo.errors.ServerSelectionTimeoutError:
@@ -106,7 +102,6 @@ def fetch_one_trivia(eid, tid):
         return make_response(jsonify({"error": "An unknown error occurred in the database"}), 500)
     if episode is None:
         return make_response(jsonify({"error":"Invalid episode ID or trivia ID"}),404)
-    print(episode[0]["trivias"])
     episode[0]["trivias"]['_id'] = str(episode[0]['trivias']['_id'])
     return make_response( jsonify(episode[0]['trivias']), 200)
 
@@ -133,26 +128,17 @@ def edit_trivia(token, eid, tid):
     else:
         return make_response(jsonify({"error": "Missing form data"}), 404)
 
-
 @trivias_bp.route("/api/v1.0/episodes/<string:eid>/trivias/<tid>/vote", methods=["PATCH"])
 @jwt_required
 def vote_on_trivia(token, eid, tid):
     if not all(c in string.hexdigits for c in id):
         return make_response(jsonify({"error" : "Invalid id format"} ), 422)
     if request.args.get('vote') == "up":
-        added_vote = {
-            "trivias.$.upvotes": token["user"]
-        }
-        removed_vote = {
-            "trivias.$.downvotes": token["user"]
-        }
+        added_vote = { "trivias.$.upvotes": token["user"] }
+        removed_vote = { "trivias.$.downvotes": token["user"] }
     elif request.args.get('vote') == "down":
-        added_vote = {
-            "trivias.$.downvotes": token["user"]
-        }
-        removed_vote = {
-            "trivias.$.upvotes": token["user"]
-        }
+        added_vote = { "trivias.$.downvotes": token["user"] }
+        removed_vote = { "trivias.$.upvotes": token["user"] }
     else:
         return make_response(jsonify({"error": "Vote direction not provided"}), 404)
     try:
